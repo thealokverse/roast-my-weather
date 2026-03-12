@@ -1,65 +1,189 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Loader2 } from "lucide-react";
+import { fetchWeather, WeatherData } from "@/lib/weather";
+import { WeatherCard } from "@/components/WeatherCard";
+import { RoastCard } from "@/components/RoastCard";
+import { RoastSlider, Intensity } from "@/components/RoastSlider";
+import { RoastHeatmap } from "@/components/RoastHeatmap";
+import { Leaderboard, RoastedCity } from "@/components/Leaderboard";
 
 export default function Home() {
+  const [cityInput, setCityInput] = useState("");
+  const [intensity, setIntensity] = useState<Intensity>("Savage");
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  
+  const [searchedCity, setSearchedCity] = useState("");
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [roast, setRoast] = useState("");
+
+  const handleRoast = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!cityInput.trim()) return;
+
+    setLoading(true);
+    setError("");
+    setWeather(null);
+    setRoast("");
+    
+
+    try {
+      // 1. Fetch weather
+      const weatherData = await fetchWeather(cityInput);
+      setWeather(weatherData);
+      setSearchedCity(cityInput);
+
+      // 2. Fetch Roast
+      let finalRoast = "";
+      try {
+        const roastRes = await fetch("/api/roast", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            city: cityInput,
+            temperature: weatherData.temperature,
+            humidity: weatherData.humidity,
+            wind: weatherData.windSpeed,
+            condition: weatherData.condition,
+            intensity,
+          }),
+        });
+        
+        const roastData = await roastRes.json();
+        if (!roastRes.ok || !roastData.roast) {
+          finalRoast = `Even my AI doesn't want to talk about how depressing ${cityInput}'s weather is.`;
+        } else {
+          finalRoast = roastData.roast;
+        }
+      } catch (err) {
+        finalRoast = `Wow, ${cityInput}'s weather is so bad it literally broke my connection to reality.`;
+      }
+      
+      setRoast(finalRoast);
+
+      // 3. Calculate Score
+      let baseScore = intensity === "Mild" ? 20 : intensity === "Savage" ? 50 : 100;
+      if (weatherData.temperature > 35 || weatherData.temperature < 0) baseScore += 20;
+      if (weatherData.windSpeed > 40) baseScore += 10;
+      
+      const newRoastedCity: RoastedCity = {
+        city: cityInput,
+        latitude: weatherData.latitude,
+        longitude: weatherData.longitude,
+        roast: finalRoast,
+        roastScore: Math.min(baseScore, 100), 
+        timestamp: Date.now(),
+        temperature: weatherData.temperature,
+        condition: weatherData.condition,
+      };
+
+      // 4. Save to LocalStorage
+      const stored = localStorage.getItem("roasted_cities");
+      let citiesMap = stored ? JSON.parse(stored) : [];
+      citiesMap = citiesMap.filter((c: RoastedCity) => c.city.toLowerCase() !== cityInput.toLowerCase());
+      citiesMap.push(newRoastedCity);
+      localStorage.setItem("roasted_cities", JSON.stringify(citiesMap));
+
+      // 5. Trigger event for Map and Leaderboard update
+      window.dispatchEvent(new Event("roasts_updated"));
+
+    } catch (err: any) {
+      setError(err.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="min-h-screen pt-20 pb-24 px-4 sm:px-6 max-w-5xl mx-auto flex flex-col items-center">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full flex flex-col items-center text-center mb-12"
+      >
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white mb-6 drop-shadow-sm mt-8">
+          Roast My Weather
+        </h1>
+        <p className="text-lg md:text-xl text-white/50 max-w-2xl font-light">
+          AI that brutally roasts your city's weather. Find out how pathetic your local climate really is.
+        </p>
+      </motion.div>
+
+      <form onSubmit={handleRoast} className="w-full max-w-md relative mb-12 z-20">
+        <div className="relative flex items-center shadow-2xl rounded-full bg-[var(--color-card)] border border-white/10 hover:border-white/20 transition-colors">
+          <Search className="absolute left-6 w-5 h-5 text-white/40" />
+          <input
+            type="text"
+            value={cityInput}
+            onChange={(e) => setCityInput(e.target.value)}
+            placeholder="Enter your city..."
+            className="w-full bg-transparent border-none py-5 pl-14 pr-32 text-white placeholder-white/30 focus:outline-none focus:ring-0 text-lg rounded-full"
+            disabled={loading}
+          />
+          <button
+            disabled={loading || !cityInput.trim()}
+            className="absolute right-2 px-6 py-3 bg-[var(--color-primary)] hover:bg-[#ff8c33] disabled:opacity-50 text-black font-semibold rounded-full transition-all flex items-center justify-center min-w-[100px]"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Roast It"}
+          </button>
         </div>
-      </main>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-red-400 mt-4 text-center font-medium"
+          >
+            {error}
+          </motion.p>
+        )}
+      </form>
+
+      <div className="w-full max-w-4xl mx-auto mb-10 z-10 relative">
+         <RoastSlider intensity={intensity} setIntensity={setIntensity} />
+      </div>
+
+      <AnimatePresence>
+        {weather && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="w-full"
+          >
+            <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16 items-stretch">
+              <div className="lg:col-span-1 flex">
+                <WeatherCard {...weather} />
+              </div>
+              <div className="lg:col-span-2 flex">
+                {roast ? (
+                  <RoastCard
+                    city={searchedCity}
+                    temperature={weather.temperature}
+                    condition={weather.condition}
+                    roast={roast}
+                  />
+                ) : (
+                  <div className="w-full h-full min-h-[250px] bg-[var(--color-card)] rounded-3xl border border-white/5 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row gap-6 items-stretch">
+        <div className="flex-1 min-w-[300px]">
+          <RoastHeatmap />
+        </div>
+        <div className="shrink-0 w-full md:w-96">
+          <Leaderboard />
+        </div>
+      </div>
     </div>
   );
 }
