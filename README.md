@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Roast My Weather
 
-## Getting Started
+Welcome to **Roast My Weather**, a totally unhinged, AI-powered weather app that doesn't just tell you if it's raining—it brutally insults your city for it.
 
-First, run the development server:
+Built with Next.js, this app uses real-time weather data and Groq's blazing-fast Llama 3 models to deliver cynical, sarcastic, and frankly disrespectful commentary on your local climate.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Real-Time Weather Data**: Fetches accurate temperature, humidity, wind speed, and conditions using the free [Open-Meteo API](https://open-meteo.com/).
+- **AI-Powered Roasts**: Uses [Groq SDK](https://groq.com/) and Llama 3 models to generate personalized insults based on your city's exact weather.
+- **Adjustable Intensity Limits**: Choose how much emotional damage you want to take:
+  - **Mild**: Light teasing.
+  - **Savage**: Standard ruthless internet roasting using `llama-3.1-8b-instant`.
+  - **Nuclear**: Unfiltered, extreme roasting using the massive `llama-3.3-70b-versatile` model.
+- **World Roast Heatmap**: A gorgeous interactive globe (built with `react-simple-maps` and `d3`) plotting the locations of all the cities you've roasted, color-coded by how brutal the weather (and the roast) was.
+- **Top Roasted Leaderboard**: A local-storage backed leaderboard tracking the top 5 cities that received the harshest "Roast Scores".
+- **Premium UI/UX**: Crafted with modern web aesthetics using **Tailwind CSS v4**, **Lucide React** icons, and butter-smooth **Framer Motion** animations for a dark, glassmorphic, and dynamic look.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech Stack
 
-## Learn More
+- **Framework**: [Next.js 16 (App Router)](https://nextjs.org/)
+- **UI & Styling**: React 19, [Tailwind CSS v4](https://tailwindcss.com/)
+- **Animations**: [Framer Motion](https://www.framer.com/motion/)
+- **AI engine**: [Groq SDK](https://github.com/groq/groq-typescript) (Llama-3.1-8b-instant / Llama-3.3-70b-versatile)
+- **Maps & Data Viz**: `react-simple-maps`, `d3`, `topojson-client`
+- **Weather API**: Open-Meteo API
 
-To learn more about Next.js, take a look at the following resources:
+## How it works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. You type in a city.
+2. The frontend fetches coordinates and weather metrics via Open-Meteo.
+3. The app POSTs the geodata and weather details to the `/api/roast` route.
+4. The server crafts a custom prompt and pings Groq's Llama models.
+5. The model responds with a one-sentence brutal roast.
+6. The app calculates a "Roast Score", limits it to 100, saves it to your local storage, and updates the World Heatmap and Leaderboard.
